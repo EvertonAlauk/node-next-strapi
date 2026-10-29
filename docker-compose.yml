@@ -1,0 +1,59 @@
+# Development stack: Strapi (1337), API (4000) and frontend (3000).
+# Source code is mounted from your machine, so changes reload automatically.
+# Run `docker compose up --build` from this folder. The .env files must exist (see README).
+services:
+  strapi:
+    build:
+      context: ./backend
+    env_file: ./backend/.env
+    environment:
+      # Windows bind mounts do not deliver file events reliably, so watch by polling
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "1337:1337"
+    volumes:
+      # The whole backend folder: the SQLite database in .tmp and uploads are the same as a local run
+      - ./backend:/app
+      # Keep node_modules inside the container (Windows binaries do not work on Linux)
+      - strapi_node_modules:/app/node_modules
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+    env_file: ./api/.env
+    environment:
+      # Inside the Docker network Strapi is reached by its service name
+      STRAPI_URL: http://strapi:1337
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./api:/app
+      - api_node_modules:/app/node_modules
+    depends_on:
+      - strapi
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Inside the Docker network the Next.js server reaches the API by its service name
+        NEXT_PUBLIC_API_URL: http://api:4000
+    environment:
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  strapi_node_modules:
+  api_node_modules:
+  frontend_node_modules:
+  frontend_next:

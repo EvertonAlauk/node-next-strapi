@@ -20,25 +20,33 @@ Browser ──► Next.js (3000) ──► API (4000) ──► Strapi (1337) �
 
 ## Requirements
 
+To run locally (without Docker):
+
 - **Node.js 20 to 26** (the backend `engines` field allows that range)
 - **npm**
 - Windows, macOS or Linux
+
+To run with Docker (optional): Docker Desktop or Docker Engine with Compose. See [Running with Docker](#running-with-docker).
 
 ## Project structure
 
 ```
 posts-app/
+├── docker-compose.yml       Runs all services with Docker (optional)
 ├── backend/                 Strapi CMS (content type "post", users, admin panel)
+│   └── Dockerfile
 │   ├── config/              Strapi configuration (database, plugins, server)
 │   ├── database/migrations/ Database migrations (e.g. unique post title)
 │   └── src/api/post/        Post content type, routes, controllers, services
 ├── api/                     Express API that sits between the frontend and Strapi
-│   └── server.js            Routes for posts and auth, login checks, owner checks
+│   ├── server.js            Routes for posts and auth, login checks, owner checks
+│   └── Dockerfile
 └── frontend/                Next.js app
     ├── app/                 Pages: home, login, register, posts/new, posts/[id], posts/[id]/edit
     ├── components/          Navbar, post table, filters, pagination, dialogs, forms
     ├── lib/                 API client, session helpers, filters, pagination, redirects
-    └── proxy.ts             Sends visitors without a session to /login
+    ├── proxy.ts             Sends visitors without a session to /login
+    └── Dockerfile
 ```
 
 ## Setup
@@ -101,7 +109,7 @@ Open <http://localhost:1337/admin>, create the first admin account, then:
 
 Posts and users are stored in `backend/.tmp/data.db` (SQLite). No database server is needed.
 
-## Running the project
+## Running locally
 
 Each part runs in its own terminal. Start them in this order:
 
@@ -123,13 +131,28 @@ Open <http://localhost:3000>. You will be sent to the login page. Click **Regist
 
 The API and the frontend read their `.env` files only when they start. After changing a `.env` value, stop the process (Ctrl+C) and start it again.
 
-### Production build
+## Running with Docker
+
+Docker runs all three services together. You still need the `.env` files from the setup steps (`backend/.env`, `api/.env`), and the Strapi token in `api/.env` must be created in the Strapi admin once the stack is up.
+
+Requirements: Docker Desktop (or Docker Engine with the Compose plugin).
 
 ```bash
-cd frontend
-npm run build
-npm start                # serves the built app on port 3000
+# from the posts-app folder
+docker compose up --build
 ```
+
+| Service | URL |
+| --- | --- |
+| Frontend | <http://localhost:3000> |
+| API | <http://localhost:4000> |
+| Strapi and admin | <http://localhost:1337> and <http://localhost:1337/admin> |
+
+- The services reach each other by name inside the Docker network (`strapi`, `api`). The `.env` files keep `localhost` values for the local run; `docker-compose.yml` overrides `STRAPI_URL` for the API and `NEXT_PUBLIC_API_URL` for the frontend build.
+- The SQLite database (`backend/.tmp`) and uploads (`backend/public/uploads`) are shared with the containers through bind mounts, so your existing data stays.
+- Stop with `Ctrl+C`, or `docker compose down` to remove the containers. Your data stays on disk.
+- After changing code, run `docker compose up --build` again. After changing a `.env` file, run `docker compose up -d --force-recreate`.
+- Do not run the local Strapi (`npm run develop`) at the same time as the Docker one, because both would write the same SQLite file.
 
 ## Features
 
